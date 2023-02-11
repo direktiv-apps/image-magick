@@ -19,7 +19,7 @@ states:
   catch:
   - error: '*'
   action:
-    function: image
+    function: image-magick
     input:
       commands:
       - convert mypic.png -resize 200% out/workflow/resized.png
