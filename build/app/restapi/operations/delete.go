@@ -29,10 +29,10 @@ func NewDelete(ctx *middleware.Context, handler DeleteHandler) *Delete {
 	return &Delete{Context: ctx, Handler: handler}
 }
 
-/* Delete swagger:route DELETE / delete
+/*
+	Delete swagger:route DELETE / delete
 
 Delete delete API
-
 */
 type Delete struct {
 	Context *middleware.Context

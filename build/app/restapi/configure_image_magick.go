@@ -14,10 +14,10 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	"image-magick/restapi/operations"
+	"app/restapi/operations"
 )
 
-//go:generate swagger generate server --target ../../app --name ImageMagick --spec ../swagger.yaml --principal interface{}
+//go:generate swagger generate server --target ../../app --name ImageMagick --spec ../../../swagger.yaml --template-dir /home/jensg/go/src/github.com/direktiv-apps/image-magick/build/templates --principal interface{}
 
 func configureFlags(api *operations.ImageMagickAPI) {
 	// api.CommandLineOptionsGroups = []swag.CommandLineOptionsGroup{ ... }

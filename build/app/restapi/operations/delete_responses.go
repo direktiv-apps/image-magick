@@ -14,7 +14,8 @@ import (
 // DeleteOKCode is the HTTP code returned for type DeleteOK
 const DeleteOKCode int = 200
 
-/*DeleteOK delete o k
+/*
+DeleteOK delete o k
 
 swagger:response deleteOK
 */

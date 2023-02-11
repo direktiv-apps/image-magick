@@ -9,7 +9,12 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 
-	"image-magick/models"
+	// custom function imports
+	// end
+	// custom function imports
+	// end
+
+	"app/models"
 )
 
 const (
@@ -32,21 +37,28 @@ const (
 
 type accParams struct {
 	PostParams
-	Commands []interface{}
+	Commands    []interface{}
+	DirektivDir string
 }
 
 type accParamsTemplate struct {
-	PostBody
-	Commands []interface{}
+	models.PostParamsBody
+	Commands    []interface{}
+	DirektivDir string
+}
+
+type ctxInfo struct {
+	cf        context.CancelFunc
+	cancelled bool
 }
 
 func PostDirektivHandle(params PostParams) middleware.Responder {
-	fmt.Printf("params in: %+v", params)
-	resp := &PostOKBody{}
+	resp := &models.PostOKBody{}
 
 	var (
-		err error
-		ret interface{}
+		err  error
+		ret  interface{}
+		cont bool
 	)
 
 	ri, err := apps.RequestinfoFromRequest(params.HTTPRequest)
@@ -55,8 +67,13 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 	}
 
 	ctx, cancel := context.WithCancel(params.HTTPRequest.Context())
-	sm.Store(*params.DirektivActionID, cancel)
-	defer sm.Delete(params.DirektivActionID)
+
+	sm.Store(*params.DirektivActionID, &ctxInfo{
+		cancel,
+		false,
+	})
+
+	defer sm.Delete(*params.DirektivActionID)
 
 	var responses []interface{}
 
@@ -64,54 +81,84 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 	accParams := accParams{
 		params,
 		nil,
+		ri.Dir(),
 	}
-
 	ret, err = runCommand0(ctx, accParams, ri)
+
 	responses = append(responses, ret)
 
-	if err != nil && true {
+	// if foreach returns an error there is no continue
+	//
+	// cont = false
+	//
+
+	if err != nil && !cont {
+
 		errName := cmdErr
+
+		// if the delete function added the cancel tag
+		ci, ok := sm.Load(*params.DirektivActionID)
+		if ok {
+			cinfo, ok := ci.(*ctxInfo)
+			if ok && cinfo.cancelled {
+				errName = "direktiv.actionCancelled"
+				err = fmt.Errorf("action got cancel request")
+			}
+		}
+
 		return generateError(errName, err)
 	}
 
 	paramsCollector = append(paramsCollector, ret)
 	accParams.Commands = paramsCollector
-
 	ret, err = runCommand1(ctx, accParams, ri)
+
 	responses = append(responses, ret)
 
-	if err != nil && true {
+	// if foreach returns an error there is no continue
+	//
+	// cont = false
+	//
+
+	if err != nil && !cont {
+
 		errName := cmdErr
+
+		// if the delete function added the cancel tag
+		ci, ok := sm.Load(*params.DirektivActionID)
+		if ok {
+			cinfo, ok := ci.(*ctxInfo)
+			if ok && cinfo.cancelled {
+				errName = "direktiv.actionCancelled"
+				err = fmt.Errorf("action got cancel request")
+			}
+		}
+
 		return generateError(errName, err)
 	}
 
 	paramsCollector = append(paramsCollector, ret)
 	accParams.Commands = paramsCollector
-
-	fmt.Printf("object going in output template: %+v\n", responses)
 
 	s, err := templateString(`{
-  "commands": {{ index . 0 | toJson }}
+  "image-magick": {{ index . 0 | toJson }}
   {{ $l := len (index . 1) }}
   {{- if gt $l 0 }}
   , "images": {{ index . 1 | toJson }}
   {{- end }}
 }
-`, responses)
+`, responses, ri.Dir())
 	if err != nil {
 		return generateError(outErr, err)
 	}
-	fmt.Printf("object from output template: %+v\n", s)
 
 	responseBytes := []byte(s)
 
 	// validate
-
 	resp.UnmarshalBinary(responseBytes)
 	err = resp.Validate(strfmt.Default)
 
 	if err != nil {
-		fmt.Printf("error parsing output template: %+v\n", err)
 		return generateError(outErr, err)
 	}
 
@@ -121,25 +168,28 @@ func PostDirektivHandle(params PostParams) middleware.Responder {
 // foreach command
 type LoopStruct0 struct {
 	accParams
-	Item interface{}
+	Item        interface{}
+	DirektivDir string
 }
 
 func runCommand0(ctx context.Context,
 	params accParams, ri *apps.RequestInfo) ([]map[string]interface{}, error) {
 
-	ri.Logger().Infof("foreach command over .Commands")
-
 	var cmds []map[string]interface{}
+
+	if params.Body == nil {
+		return cmds, nil
+	}
 
 	for a := range params.Body.Commands {
 
 		ls := &LoopStruct0{
 			params,
 			params.Body.Commands[a],
+			params.DirektivDir,
 		}
-		fmt.Printf("object going in command template: %+v\n", ls)
 
-		cmd, err := templateString(`{{ .Item }}`, ls)
+		cmd, err := templateString(`{{ .Item.Command }}`, ls, params.DirektivDir)
 		if err != nil {
 			ir := make(map[string]interface{})
 			ir[successKey] = false
@@ -148,13 +198,36 @@ func runCommand0(ctx context.Context,
 			continue
 		}
 
-		silent := convertTemplateToBool("<no value>", ls, false)
-		print := convertTemplateToBool("<no value>", ls, true)
+		silent := convertTemplateToBool("{{ .Item.Silent }}", ls, false)
+		print := convertTemplateToBool("{{ .Item.Print }}", ls, true)
+		cont := convertTemplateToBool("{{ .Item.Continue }}", ls, false)
 		output := ""
 
 		envs := []string{}
 
-		r, _ := runCmd(ctx, cmd, envs, output, silent, print, ri)
+		workingDir, err := templateString(``, ls, params.DirektivDir)
+		if err != nil {
+			ir := make(map[string]interface{})
+			ir[successKey] = false
+			ir[resultKey] = err.Error()
+			cmds = append(cmds, ir)
+			continue
+		}
+
+		r, err := runCmd(ctx, cmd, envs, output, silent, print, ri, workingDir)
+		if err != nil {
+			ir := make(map[string]interface{})
+			ir[successKey] = false
+			ir[resultKey] = err.Error()
+			cmds = append(cmds, ir)
+
+			if cont {
+				continue
+			}
+
+			return cmds, err
+
+		}
 		cmds = append(cmds, r)
 
 	}
@@ -168,25 +241,28 @@ func runCommand0(ctx context.Context,
 // foreach command
 type LoopStruct1 struct {
 	accParams
-	Item interface{}
+	Item        interface{}
+	DirektivDir string
 }
 
 func runCommand1(ctx context.Context,
 	params accParams, ri *apps.RequestInfo) ([]map[string]interface{}, error) {
 
-	ri.Logger().Infof("foreach command over .Return")
-
 	var cmds []map[string]interface{}
+
+	if params.Body == nil {
+		return cmds, nil
+	}
 
 	for a := range params.Body.Return {
 
 		ls := &LoopStruct1{
 			params,
 			params.Body.Return[a],
+			params.DirektivDir,
 		}
-		fmt.Printf("object going in command template: %+v\n", ls)
 
-		cmd, err := templateString(`base64 -w 0 {{ .Item }}`, ls)
+		cmd, err := templateString(`base64 -w 0 {{ .Item }}`, ls, params.DirektivDir)
 		if err != nil {
 			ir := make(map[string]interface{})
 			ir[successKey] = false
@@ -195,13 +271,36 @@ func runCommand1(ctx context.Context,
 			continue
 		}
 
-		silent := convertTemplateToBool("true", ls, false)
+		silent := convertTemplateToBool("<no value>", ls, false)
 		print := convertTemplateToBool("<no value>", ls, true)
+		cont := convertTemplateToBool("<no value>", ls, false)
 		output := ""
 
 		envs := []string{}
 
-		r, _ := runCmd(ctx, cmd, envs, output, silent, print, ri)
+		workingDir, err := templateString(``, ls, params.DirektivDir)
+		if err != nil {
+			ir := make(map[string]interface{})
+			ir[successKey] = false
+			ir[resultKey] = err.Error()
+			cmds = append(cmds, ir)
+			continue
+		}
+
+		r, err := runCmd(ctx, cmd, envs, output, silent, print, ri, workingDir)
+		if err != nil {
+			ir := make(map[string]interface{})
+			ir[successKey] = false
+			ir[resultKey] = err.Error()
+			cmds = append(cmds, ir)
+
+			if cont {
+				continue
+			}
+
+			return cmds, err
+
+		}
 		cmds = append(cmds, r)
 
 	}

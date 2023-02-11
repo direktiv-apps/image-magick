@@ -1,0 +1,25 @@
+url: ""
+functions:
+- type: knative-workflow
+  id: image-magick
+  image: gcr.io/direktiv/functions/image-magick:test
+states:
+- id: state0
+  type: action
+  action:
+    function: image-magick
+    input:
+      commands:
+      - command: 'convert mypic.png json:'
+      - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten mypic.png
+      - command: convert mypic.png -resize 200x100 mypic.jpg
+  transition: state1
+- id: state1
+  type: action
+  catch:
+  - error: '*'
+  action:
+    function: image
+    input:
+      commands:
+      - convert mypic.png -resize 200% out/workflow/resized.png

@@ -25,7 +25,7 @@ import (
 	flags "github.com/jessevdk/go-flags"
 	"golang.org/x/net/netutil"
 
-	"image-magick/restapi/operations"
+	"app/restapi/operations"
 )
 
 const (
@@ -57,6 +57,9 @@ func (s *Server) ConfigureAPI() {
 	if s.api != nil {
 		s.handler = configureAPI(s.api)
 	}
+
+	s.ReadTimeout = 86400 * time.Second
+	s.WriteTimeout = 86400 * time.Second
 }
 
 // ConfigureFlags configures the additional flags defined by the handlers. Needs to be called before the parser.Parse
@@ -152,6 +155,7 @@ func (s *Server) hasScheme(scheme string) bool {
 
 // Serve the api
 func (s *Server) Serve() (err error) {
+
 	if !s.hasListeners {
 		if err = s.Listen(); err != nil {
 			return err
