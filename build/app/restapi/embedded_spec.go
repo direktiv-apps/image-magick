@@ -221,7 +221,7 @@ func init() {
             "title": "Basic"
           },
           {
-            "content": "- id: modify \n  type: action\n  action:\n    function: image\n    input: \n      commands:\n      # stores the image in workflow scope variable ` + "`" + `resized.png` + "`" + `\n      - convert mypic.png -resize 200% out/workflow/resized.png \n  catch: \n  - error: \"*\"",
+            "content": "- id: modify \n  type: action\n  action:\n    function: image-magick\n    input: \n      commands:\n      # stores the image in workflow scope variable ` + "`" + `resized.png` + "`" + `\n      - convert mypic.png -resize 200% out/workflow/resized.png \n  catch: \n  - error: \"*\"",
             "title": "Advanced"
           }
         ],
@@ -390,7 +390,7 @@ func init() {
             "title": "Basic"
           },
           {
-            "content": "- id: modify \n  type: action\n  action:\n    function: image\n    input: \n      commands:\n      # stores the image in workflow scope variable ` + "`" + `resized.png` + "`" + `\n      - convert mypic.png -resize 200% out/workflow/resized.png \n  catch: \n  - error: \"*\"",
+            "content": "- id: modify \n  type: action\n  action:\n    function: image-magick\n    input: \n      commands:\n      # stores the image in workflow scope variable ` + "`" + `resized.png` + "`" + `\n      - convert mypic.png -resize 200% out/workflow/resized.png \n  catch: \n  - error: \"*\"",
             "title": "Advanced"
           }
         ],

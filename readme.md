@@ -41,7 +41,7 @@ functions:
 - id: modify 
   type: action
   action:
-    function: image
+    function: image-magick
     input: 
       commands:
       # stores the image in workflow scope variable `resized.png`
