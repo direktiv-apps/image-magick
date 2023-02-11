@@ -217,7 +217,7 @@ func init() {
         },
         "x-direktiv-examples": [
           {
-            "content": "- id: image-magick\n  type: action\n  action:\n    function: image-magick\n    input: \n      commands:\n      - command: 'convert mypic.png json:'\n      - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten mypic.png\n      - command: convert mypic.png -resize 200x100 mypic.jpg",
+            "content": "- id: image-magick\n  type: action\n  action:\n    function: image-magick\n    input: \n      commands:\n      - command: 'convert mypic.png json:'\n      - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten mypic.png\n      - command: convert mypic.png -resize 200x100 mypic.jpg\n  catch:\n  - error: '*'",
             "title": "Basic"
           },
           {
@@ -386,7 +386,7 @@ func init() {
         },
         "x-direktiv-examples": [
           {
-            "content": "- id: image-magick\n  type: action\n  action:\n    function: image-magick\n    input: \n      commands:\n      - command: 'convert mypic.png json:'\n      - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten mypic.png\n      - command: convert mypic.png -resize 200x100 mypic.jpg",
+            "content": "- id: image-magick\n  type: action\n  action:\n    function: image-magick\n    input: \n      commands:\n      - command: 'convert mypic.png json:'\n      - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten mypic.png\n      - command: convert mypic.png -resize 200x100 mypic.jpg\n  catch:\n  - error: '*'",
             "title": "Basic"
           },
           {

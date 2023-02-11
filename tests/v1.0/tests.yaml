@@ -6,6 +6,8 @@ functions:
 states:
 - id: state0
   type: action
+  catch:
+  - error: '*'
   action:
     function: image-magick
     input:

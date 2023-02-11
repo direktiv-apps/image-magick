@@ -35,6 +35,8 @@ functions:
       - command: 'convert mypic.png json:'
       - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten mypic.png
       - command: convert mypic.png -resize 200x100 mypic.jpg
+  catch:
+  - error: '*'
 ```
    #### Advanced
 ```yaml
