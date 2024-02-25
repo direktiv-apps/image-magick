@@ -1,0 +1,188 @@
+openapi: 3.0.1
+info:
+  title: image-magick
+  description: Image modifications in Direktiv
+  version: "1.0"
+  x-direktiv-meta:
+    container: gcr.io/direktiv/functions/image-magick
+    maintainer: "[direktiv.io](https://www.direktiv.io) "
+    issues: https://github.com/direktiv-apps/image-magick/issues
+    url: https://github.com/direktiv-apps/image-magick
+    categories:
+    - tools
+    license: "[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)"
+    long-description: "This app can run multiple [Image Magick](https://imagemagick.org/index.php)\
+      \ commands.  The results can either be stored in the output folder of Direktiv\
+      \ to store them as variables or returned as base64."
+servers:
+- url: /
+paths:
+  /:
+    post:
+      parameters:
+      - name: Direktiv-ActionID
+        in: header
+        description: "direktiv action id is an UUID. \nFor development it can be set\
+          \ to 'development'\n"
+        schema:
+          type: string
+          default: development
+      - name: Direktiv-TempDir
+        in: header
+        description: |
+          direktiv temp dir is the working directory for that request
+          For development it can be set to e.g. '/tmp'
+        schema:
+          type: string
+          default: /tmp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  description: File to create before running commands.
+                  items:
+                    $ref: '#/components/schemas/direktivFile'
+                return:
+                  type: array
+                  description: Returns the images as base64
+                  example: myimage.jpg
+                  items:
+                    type: string
+                commands:
+                  type: array
+                  description: Array of commands.
+                  items:
+                    type: object
+                    properties:
+                      command:
+                        type: string
+                        description: Command to run
+                      silent:
+                        type: boolean
+                        description: If set to false the command will not print output
+                          to logs.
+                        default: false
+                      print:
+                        type: boolean
+                        description: If set to false the command will not print the
+                          full command with arguments to logs.
+                        default: true
+                      continue:
+                        type: boolean
+                        description: "Stops excecution if command fails, otherwise\
+                          \ proceeds with next command"
+        required: false
+      responses:
+        "200":
+          description: List of executed commands.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  images:
+                    type: array
+                    items:
+                      required:
+                      - result
+                      - success
+                      type: object
+                      properties:
+                        success:
+                          type: boolean
+                        result:
+                          type: object
+                  image-magick:
+                    type: array
+                    items:
+                      required:
+                      - result
+                      - success
+                      type: object
+                      properties:
+                        success:
+                          type: boolean
+                        result:
+                          type: object
+            image-magick:
+              example:
+              - result: null
+                success: true
+              - result: null
+                success: true
+        default:
+          description: generic error response
+          headers:
+            Direktiv-ErrorMessage:
+              schema:
+                type: string
+            Direktiv-ErrorCode:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+      x-direktiv-function: |-
+        functions:
+        - id: image-magick
+          image: gcr.io/direktiv/functions/image-magick:1.0
+          type: knative-workflow
+      x-direktiv-examples:
+      - title: Basic
+        content: "- id: image-magick\n  type: action\n  action:\n    function: image-magick\n\
+          \    input: \n      commands:\n      - command: 'convert mypic.png json:'\n\
+          \      - command: convert mypic.png -fuzz 25% -fill red -opaque white -flatten\
+          \ mypic.png\n      - command: convert mypic.png -resize 200x100 mypic.jpg\n\
+          \  catch:\n  - error: '*'"
+      - title: Advanced
+        content: "- id: modify \n  type: action\n  action:\n    function: image-magick\n\
+          \    input: \n      commands:\n      # stores the image in workflow scope\
+          \ variable `resized.png`\n      - convert mypic.png -resize 200% out/workflow/resized.png\
+          \ \n  catch: \n  - error: \"*\""
+      x-direktiv:
+        cmds:
+        - action: foreach
+          loop: .Commands
+          exec: "{{ .Item.Command }}"
+          silent: "{{ .Item.Silent }}"
+          print: "{{ .Item.Print }}"
+          continue: "{{ .Item.Continue }}"
+        - action: foreach
+          loop: .Return
+          exec: "base64 -w 0 {{ .Item }}"
+        output: |
+          {
+            "image-magick": {{ index . 0 | toJson }}
+            {{ $l := len (index . 1) }}
+            {{- if gt $l 0 }}
+            , "images": {{ index . 1 | toJson }}
+            {{- end }}
+          }
+      x-direktiv-errors:
+        io.direktiv.command.error: Command execution failed
+        io.direktiv.output.error: Template error for output generation of the service
+        io.direktiv.ri.error: Can not create information object from request
+      x-codegen-request-body-name: body
+components:
+  schemas:
+    direktivFile:
+      type: object
+      x-go-type:
+        type: DirektivFile
+        import:
+          package: github.com/direktiv/apps/go/pkg/apps
+    error:
+      required:
+      - errorCode
+      - errorMessage
+      type: object
+      properties:
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
